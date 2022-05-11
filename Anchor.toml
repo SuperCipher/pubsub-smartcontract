@@ -1,7 +1,7 @@
 [features]
 seeds = false
 [programs.localnet]
-pubsub_smartcontract = "Fg6PaFpoGXkYsidMpWTK6W2BeZ7FEfcYkg476zPFsLnS"
+pubsub_smartcontract = "AG3tNC1LRV6L4hCR3iixFT7Y5oUTJeHzjvp533Du8X7t"
 
 [registry]
 url = "https://anchor.projectserum.com"

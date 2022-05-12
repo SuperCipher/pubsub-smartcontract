@@ -71,19 +71,10 @@ pub struct CreateEvent<'info> {
     pub system_program: Program<'info, System>,
 }
 
-const HASH_TAG_TOO_LONG: &str = formatcp!(
-    "The provided topic should be {} characters long maximum.",
-    MAX_HASHTAG_LENGTH,
-);
-const CONTENT_TOO_LONG: &str = formatcp!(
-    "The provided content should be {} characters long maximum.",
-    MAX_CONTENT_LENGTH,
-);
-
 #[error_code]
 pub enum ErrorCode {
-    #[msg(HASH_TAG_TOO_LONG)]
+    #[msg("The provided hashtag should be 50 characters long maximum.")]
     HashTagTooLong,
-    #[msg(CONTENT_TOO_LONG)]
+    #[msg("The provided content should be 300 characters long maximum.")]
     ContentTooLong,
 }

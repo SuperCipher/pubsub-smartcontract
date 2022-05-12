@@ -1,4 +1,5 @@
 use anchor_lang::prelude::*;
+use const_format::formatcp;
 
 declare_id!("AG3tNC1LRV6L4hCR3iixFT7Y5oUTJeHzjvp533Du8X7t");
 
@@ -16,7 +17,7 @@ const MAX_CONTENT_LENGTH_BYTES: usize = MAX_CONTENT_LENGTH * UTF_8_ENCODED_BYTES
 pub mod pubsub_smartcontract {
     use super::*;
 
-    pub fn initialize(ctx: Context<Initialize>) -> Result<()> {
+    pub fn initialize(_ctx: Context<Initialize>) -> Result<()> {
         Ok(())
     }
 
@@ -70,10 +71,19 @@ pub struct CreateEvent<'info> {
     pub system_program: Program<'info, System>,
 }
 
+const HASH_TAG_TOO_LONG: &str = formatcp!(
+    "The provided topic should be {} characters long maximum.",
+    MAX_HASHTAG_LENGTH,
+);
+const CONTENT_TOO_LONG: &str = formatcp!(
+    "The provided content should be {} characters long maximum.",
+    MAX_CONTENT_LENGTH,
+);
+
 #[error_code]
 pub enum ErrorCode {
-    #[msg("The provided topic should be 50 characters long maximum.")]
+    #[msg(HASH_TAG_TOO_LONG)]
     HashTagTooLong,
-    #[msg("The provided content should be 280 characters long maximum.")]
+    #[msg(CONTENT_TOO_LONG)]
     ContentTooLong,
 }

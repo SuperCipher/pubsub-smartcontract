@@ -1,5 +1,4 @@
 use anchor_lang::prelude::*;
-use const_format::formatcp;
 
 declare_id!("AG3tNC1LRV6L4hCR3iixFT7Y5oUTJeHzjvp533Du8X7t");
 
@@ -41,6 +40,27 @@ pub mod pubsub_smartcontract {
 
         Ok(())
     }
+
+    pub fn update_event(ctx: Context<UpdateEvent>, hashtag: String, content: String) -> Result<()> {
+        let event: &mut Account<Event> = &mut ctx.accounts.event;
+
+        if hashtag.chars().count() > MAX_HASHTAG_LENGTH {
+            return Err(error!(ErrorCode::HashTagTooLong));
+        }
+
+        if content.chars().count() > MAX_CONTENT_LENGTH {
+            return Err(error!(ErrorCode::ContentTooLong));
+        }
+
+        event.hashtag = hashtag;
+        event.content = content;
+
+        Ok(())
+    }
+
+    pub fn delete_event(_ctx: Context<DeleteEvent>) -> Result<()> {
+        Ok(())
+    }
 }
 
 impl Event {
@@ -69,6 +89,20 @@ pub struct CreateEvent<'info> {
     #[account(mut)]
     pub author: Signer<'info>,
     pub system_program: Program<'info, System>,
+}
+
+#[derive(Accounts)]
+pub struct UpdateEvent<'info> {
+    #[account(mut, has_one = author)]
+    pub event: Account<'info, Event>,
+    pub author: Signer<'info>,
+}
+
+#[derive(Accounts)]
+pub struct DeleteEvent<'info> {
+    #[account(mut, has_one = author, close = author)]
+    pub event: Account<'info, Event>,
+    pub author: Signer<'info>,
 }
 
 #[error_code]

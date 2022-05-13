@@ -12,19 +12,19 @@ describe("pubsub-smartcontract", () => {
 
   const program = anchor.workspace.PubsubSmartcontract as Program<PubsubSmartcontract>;
 
-  // const createEvent = async (author, hashtag, content) => {
-  //     const eventAccount = anchor.web3.Keypair.generate();
-  //     await program.rpc.createEvent(hashtag, content, {
-  //         accounts: {
-  //             event: eventAccount.publicKey,
-  //             author,
-  //             systemProgram: anchor.web3.SystemProgram.programId,
-  //         },
-  //         signers: [eventAccount],
-  //     });
-  //
-  //     return eventAccount
-  // }
+  const createEvent = async (author, hashtag, content) => {
+      const eventAccount = anchor.web3.Keypair.generate();
+      await program.rpc.createEvent(hashtag, content, {
+          accounts: {
+              event: eventAccount.publicKey,
+              author,
+              systemProgram: anchor.web3.SystemProgram.programId,
+          },
+          signers: [eventAccount],
+      });
+
+      return eventAccount
+  }
 
   it('can create a new event', async () => {
       // Call the "create event" instruction.
@@ -183,6 +183,91 @@ describe("pubsub-smartcontract", () => {
       }))
   });
 
+  it('can update a event', async () => {
+      // Send a event and fetch its account.
+      const author = provider.wallet.publicKey;
+      const event = await createEvent(author, 'web2', 'Hello World!');
+      const eventAccount = await program.account.event.fetch(event.publicKey);
+
+      // Ensure it has the right data.
+      assert.equal(eventAccount.hashtag, 'web2');
+      assert.equal(eventAccount.content, 'Hello World!');
+
+      // Update the Event.
+      await program.rpc.updateEvent('solana', 'gm everyone!', {
+          accounts: {
+              event: event.publicKey,
+              author,
+          },
+      });
+
+      // Ensure the updated event has the updated data.
+      const updatedEventAccount = await program.account.event.fetch(event.publicKey);
+      assert.equal(updatedEventAccount.hashtag, 'solana');
+      assert.equal(updatedEventAccount.content, 'gm everyone!');
+  });
+
+  it('cannot update someone else\'s event', async () => {
+      // Send a event.
+      const author = provider.wallet.publicKey;
+      const event = await createEvent(author, 'solana', 'Solana is awesome!');
+
+      // Update the Event.
+      try {
+          await program.rpc.updateEvent('eth', 'Ethereum is awesome!', {
+              accounts: {
+                  event: event.publicKey,
+                  author: anchor.web3.Keypair.generate().publicKey,
+              },
+          });
+          assert.fail('We were able to update someone else\'s event.');
+      } catch (error) {
+          // Ensure the event account kept the initial data.
+          const eventAccount = await program.account.event.fetch(event.publicKey);
+          assert.equal(eventAccount.hashtag, 'solana');
+          assert.equal(eventAccount.content, 'Solana is awesome!');
+      }
+  });
+
+  it('can delete a event', async () => {
+      // Create a new event.
+      const author = provider.wallet.publicKey;
+      const event = await createEvent(author, 'solana', 'gm');
+
+      // Delete the Event.
+      await program.rpc.deleteEvent({
+          accounts: {
+              event: event.publicKey,
+              author,
+          },
+      });
+
+      // Ensure fetching the event account returns null.
+      const eventAccount = await program.account.event.fetchNullable(event.publicKey);
+      assert.ok(eventAccount === null);
+  });
+
+  it('cannot delete someone else\'s event', async () => {
+      // Create a new event.
+      const author = provider.wallet.publicKey;
+      const event = await createEvent(author, 'solana', 'gm');
+
+      // Try to delete the Event from a different author.
+      try {
+          await program.rpc.deleteEvent({
+              accounts: {
+                  event: event.publicKey,
+                  author: anchor.web3.Keypair.generate().publicKey,
+              },
+          });
+          assert.fail('We were able to delete someone else\'s event.');
+      } catch (error) {
+          // Ensure the event account still exists with the right data.
+          const eventAccount = await program.account.event.fetch(event.publicKey);
+          assert.equal(eventAccount.hashtag, 'solana');
+          assert.equal(eventAccount.content, 'gm');
+      }
+  });
 
   it("Is initialized!", async () => {
     // Add your test here.

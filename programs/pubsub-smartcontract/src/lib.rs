@@ -9,8 +9,11 @@ const STRING_PREFIX_BYTES: usize = 4; // size of the string in bytes.
 const UTF_8_ENCODED_BYTES_PER_CHARACTER: usize = 4;
 const MAX_HASHTAG_LENGTH: usize = 50; // 50 UTF-8 characters max.
 const MAX_CONTENT_LENGTH: usize = 300; // 300 UTF-8 characters max.
+const MAX_PROOF_LENGTH: usize = 300; // 300 UTF-8 characters max.
+
 const MAX_HASHTAG_LENGTH_BYTES: usize = MAX_HASHTAG_LENGTH * UTF_8_ENCODED_BYTES_PER_CHARACTER;
 const MAX_CONTENT_LENGTH_BYTES: usize = MAX_CONTENT_LENGTH * UTF_8_ENCODED_BYTES_PER_CHARACTER;
+const MAX_PROOF_LENGTH_BYTES: usize = MAX_PROOF_LENGTH * UTF_8_ENCODED_BYTES_PER_CHARACTER;
 
 #[program]
 pub mod pubsub_smartcontract {
@@ -20,7 +23,11 @@ pub mod pubsub_smartcontract {
         Ok(())
     }
 
-    pub fn create_event(ctx: Context<CreateEvent>, hashtag: String, content: String) -> Result<()> {
+    // Implement check balance
+
+    // TODO refactor this to event class
+
+    pub fn publish(ctx: Context<CreateEvent>, hashtag: String, content: String) -> Result<()> {
         let event: &mut Account<Event> = &mut ctx.accounts.event;
         let author: &Signer = &ctx.accounts.author;
         let clock: Clock = Clock::get().unwrap();
@@ -38,27 +45,36 @@ pub mod pubsub_smartcontract {
         event.hashtag = hashtag;
         event.content = content;
 
-        Ok(())
-    }
-
-    pub fn update_event(ctx: Context<UpdateEvent>, hashtag: String, content: String) -> Result<()> {
-        let event: &mut Account<Event> = &mut ctx.accounts.event;
-
-        if hashtag.chars().count() > MAX_HASHTAG_LENGTH {
-            return Err(error!(ErrorCode::HashTagTooLong));
-        }
-
-        if content.chars().count() > MAX_CONTENT_LENGTH {
-            return Err(error!(ErrorCode::ContentTooLong));
-        }
-
-        event.hashtag = hashtag;
-        event.content = content;
+        let reward_lamports:u64 = anchor_lang::solana_program::native_token::sol_to_lamports(0.02);
+        let ix = anchor_lang::solana_program::system_instruction::transfer(
+            &ctx.accounts.author.key(),
+            &ctx.accounts.event.key(),
+            reward_lamports,
+        );
+        anchor_lang::solana_program::program::invoke(
+            &ix,
+            &[
+                ctx.accounts.author.to_account_info(),
+                ctx.accounts.event.to_account_info(),
+            ],
+        );
 
         Ok(())
     }
 
-    pub fn delete_event(_ctx: Context<DeleteEvent>) -> Result<()> {
+    pub fn notify(ctx: Context<Notify>, proof: String) -> Result<()> {
+        let notification: &mut Account<Notification> = &mut ctx.accounts.notification;
+        let notifier: &Signer = &ctx.accounts.notifier;
+        let clock: Clock = Clock::get().unwrap();
+
+        if proof.chars().count() > MAX_PROOF_LENGTH_BYTES {
+            return Err(error!(ErrorCode::ProofTooLong));
+        }
+
+        notification.notifier = *notifier.key;
+        notification.timestamp = clock.unix_timestamp;
+        notification.proof = proof;
+
         Ok(())
     }
 }
@@ -91,18 +107,27 @@ pub struct CreateEvent<'info> {
     pub system_program: Program<'info, System>,
 }
 
-#[derive(Accounts)]
-pub struct UpdateEvent<'info> {
-    #[account(mut, has_one = author)]
-    pub event: Account<'info, Event>,
-    pub author: Signer<'info>,
+#[account]
+pub struct Notification {
+    pub notifier: Pubkey,
+    pub timestamp: i64,
+    pub proof: String,
+}
+
+impl Notification {
+    const LEN: usize = DISCRIMINATOR_BYTES // https://lorisleiva.com/create-a-solana-dapp-from-scratch/structuring-our-tweet-account#discriminator
+        + PUBLIC_KEY_BYTES // notifier.
+        + TIMESTAMP_BYTES
+        + STRING_PREFIX_BYTES + MAX_PROOF_LENGTH_BYTES;
 }
 
 #[derive(Accounts)]
-pub struct DeleteEvent<'info> {
-    #[account(mut, has_one = author, close = author)]
-    pub event: Account<'info, Event>,
-    pub author: Signer<'info>,
+pub struct Notify<'info> {
+    #[account(init, payer = notifier, space = Notification::LEN)]
+    pub notification: Account<'info, Notification>,
+    #[account(mut)]
+    pub notifier: Signer<'info>,
+    pub system_program: Program<'info, System>,
 }
 
 #[error_code]
@@ -111,4 +136,6 @@ pub enum ErrorCode {
     HashTagTooLong,
     #[msg("The provided content should be 300 characters long maximum.")]
     ContentTooLong,
+    #[msg("The provided proof should be 300 characters long maximum.")]
+    ProofTooLong,
 }

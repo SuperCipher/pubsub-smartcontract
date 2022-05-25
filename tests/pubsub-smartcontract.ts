@@ -79,6 +79,21 @@ describe("pubsub-smartcontract", () => {
       assert.equal(fetchedNotificationAccount.proof, proof);
       assert.ok(fetchedNotificationAccount.timestamp);
 
+
+      const eventAccounts = await program.account.notification.all([
+          {
+              memcmp: {
+                  offset: 8+ // Discriminator.
+                    32, // notification public key.
+                  bytes: eventKey.toBase58(),
+              }
+          }
+      ]);
+
+      assert.ok(eventAccounts.every(notifierAccount => {
+          return notifierAccount.account.eventKey.toBase58() === eventAccount.publicKey.toBase58()
+      }))
+
   });
 
   // it('can notify publisher', async () => {

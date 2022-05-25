@@ -16,6 +16,7 @@ const MAX_CONTENT_LENGTH_BYTES: usize = MAX_CONTENT_LENGTH * UTF_8_ENCODED_BYTES
 const MAX_PROOF_LENGTH_BYTES: usize = MAX_PROOF_LENGTH * UTF_8_ENCODED_BYTES_PER_CHARACTER;
 
 const NOTIFY_PERIOD: i64 = 60 * 60 * 24 * 30; // 1 month is seconds
+const REWARD: f64 = 0.02; // reward in Sol
 
 #[program]
 pub mod pubsub_smartcontract {
@@ -47,7 +48,7 @@ pub mod pubsub_smartcontract {
         event.hashtag = hashtag;
         event.content = content;
 
-        let reward_lamports: u64 = anchor_lang::solana_program::native_token::sol_to_lamports(0.02);
+        let reward_lamports: u64 = anchor_lang::solana_program::native_token::sol_to_lamports(REWARD);
         let ix = anchor_lang::solana_program::system_instruction::transfer(
             &ctx.accounts.author.key(),
             &ctx.accounts.event.key(),

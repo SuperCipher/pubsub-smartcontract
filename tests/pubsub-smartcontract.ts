@@ -55,30 +55,57 @@ describe("pubsub-smartcontract", () => {
       assert.equal(fetchedEventAccount.hashtag, hashTag);
       assert.equal(fetchedEventAccount.content, content);
       assert.ok(fetchedEventAccount.timestamp);
-  });
 
-  it('can notify publisher', async () => {
-      // Call the "create event" instruction.
       const notifierAccount = anchor.web3.Keypair.generate();
+      const eventKey = eventAccount.publicKey
       const proof = 'IF Solana CEO resigned THEN notify me with mainstream news URL'
 
       await program.rpc.notify( proof, {
           accounts: {
               notification: notifierAccount.publicKey,
               notifier: provider.wallet.publicKey,
+              event: eventAccount.publicKey,
               systemProgram: anchor.web3.SystemProgram.programId,
           },
           signers: [notifierAccount],
       });
 
       // Fetch the account details of the created event.
-      const fetchedEventAccount = await program.account.notification.fetch(notifierAccount.publicKey);
+      const fetchedNotificationAccount = await program.account.notification.fetch(notifierAccount.publicKey);
 
       // Ensure it has the right data.
-      assert.equal(fetchedEventAccount.notifier.toBase58(), provider.wallet.publicKey.toBase58());
-      assert.equal(fetchedEventAccount.proof, proof);
-      assert.ok(fetchedEventAccount.timestamp);
+      assert.equal(fetchedNotificationAccount.notifier.toBase58(), provider.wallet.publicKey.toBase58());
+      assert.equal(fetchedNotificationAccount.eventKey.toBase58(), eventKey.toBase58());
+      assert.equal(fetchedNotificationAccount.proof, proof);
+      assert.ok(fetchedNotificationAccount.timestamp);
+
   });
+
+  // it('can notify publisher', async () => {
+  //     // Call the "create event" instruction.
+  //     const notifierAccount = anchor.web3.Keypair.generate();
+  //     const eventAccount = anchor.web3.Keypair.generate();
+  //     const eventKey = eventAccount.publicKey
+  //     const proof = 'IF Solana CEO resigned THEN notify me with mainstream news URL'
+  //
+  //     await program.rpc.notify( proof, eventKey, {
+  //         accounts: {
+  //             notification: notifierAccount.publicKey,
+  //             notifier: provider.wallet.publicKey,
+  //             systemProgram: anchor.web3.SystemProgram.programId,
+  //         },
+  //         signers: [notifierAccount],
+  //     });
+  //
+  //     // Fetch the account details of the created event.
+  //     const fetchedEventAccount = await program.account.notification.fetch(notifierAccount.publicKey);
+  //
+  //     // Ensure it has the right data.
+  //     assert.equal(fetchedEventAccount.notifier.toBase58(), provider.wallet.publicKey.toBase58());
+  //     assert.equal(fetchedEventAccount.eventKey.toBase58(), eventKey.toBase58());
+  //     assert.equal(fetchedEventAccount.proof, proof);
+  //     assert.ok(fetchedEventAccount.timestamp);
+  // });
 
   // it('can create a new event without a hashtag', async () => {
   //     // Call the "create event" instruction.

@@ -15,6 +15,8 @@ const MAX_HASHTAG_LENGTH_BYTES: usize = MAX_HASHTAG_LENGTH * UTF_8_ENCODED_BYTES
 const MAX_CONTENT_LENGTH_BYTES: usize = MAX_CONTENT_LENGTH * UTF_8_ENCODED_BYTES_PER_CHARACTER;
 const MAX_PROOF_LENGTH_BYTES: usize = MAX_PROOF_LENGTH * UTF_8_ENCODED_BYTES_PER_CHARACTER;
 
+const NOTIFY_PERIOD: i64 = 60 * 60 * 24 * 30; // 1 month is seconds
+
 #[program]
 pub mod pubsub_smartcontract {
     use super::*;
@@ -45,7 +47,7 @@ pub mod pubsub_smartcontract {
         event.hashtag = hashtag;
         event.content = content;
 
-        let reward_lamports:u64 = anchor_lang::solana_program::native_token::sol_to_lamports(0.02);
+        let reward_lamports: u64 = anchor_lang::solana_program::native_token::sol_to_lamports(0.02);
         let ix = anchor_lang::solana_program::system_instruction::transfer(
             &ctx.accounts.author.key(),
             &ctx.accounts.event.key(),
@@ -64,14 +66,21 @@ pub mod pubsub_smartcontract {
 
     pub fn notify(ctx: Context<Notify>, proof: String) -> Result<()> {
         let notification: &mut Account<Notification> = &mut ctx.accounts.notification;
+        let event: &Account<Event> = &ctx.accounts.event;
+        let clock: Clock = Clock::get().unwrap();
         let notifier: &Signer = &ctx.accounts.notifier;
         let clock: Clock = Clock::get().unwrap();
+
+        if (event.timestamp + NOTIFY_PERIOD) <= clock.unix_timestamp {
+            return Err(error!(ErrorCode::EventExpired));
+        }
 
         if proof.chars().count() > MAX_PROOF_LENGTH_BYTES {
             return Err(error!(ErrorCode::ProofTooLong));
         }
 
         notification.notifier = *notifier.key;
+        notification.event_key = event.key();
         notification.timestamp = clock.unix_timestamp;
         notification.proof = proof;
 
@@ -110,6 +119,7 @@ pub struct CreateEvent<'info> {
 #[account]
 pub struct Notification {
     pub notifier: Pubkey,
+    pub event_key: Pubkey,
     pub timestamp: i64,
     pub proof: String,
 }
@@ -127,6 +137,8 @@ pub struct Notify<'info> {
     pub notification: Account<'info, Notification>,
     #[account(mut)]
     pub notifier: Signer<'info>,
+    #[account()]
+    pub event: Account<'info, Event>,
     pub system_program: Program<'info, System>,
 }
 
@@ -138,4 +150,6 @@ pub enum ErrorCode {
     ContentTooLong,
     #[msg("The provided proof should be 300 characters long maximum.")]
     ProofTooLong,
+    #[msg("This event expired")]
+    EventExpired,
 }
